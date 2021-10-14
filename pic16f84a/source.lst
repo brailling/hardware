@@ -1,0 +1,431 @@
+MPASM  5.51                        SOURCE.ASM   10-14-2021  18:43:06         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ; =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                      00002 ;
+                      00003 ; MCU:  PIC16F84A
+                      00004 ; CLK:  4MHz
+                      00005 ;
+                      00006 ; Repository:   https://github.com/HelloWorld-Braille-display/Hardware/pic16f84a
+                      00007 ;
+                      00008 ; =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                      00009 
+                      00010 
+                      00011         list            p=16f84a
+                      00012 
+                      00013                 
+                      00014 ; =-=-=- Includes -=-=-=
+                      00015         
+                      00016 #include        <p16f84a.inc>
+                      00001         LIST
+                      00002 
+                      00003 ;==========================================================================
+                      00004 ;  MPASM PIC16F84A processor include
+                      00005 ; 
+                      00006 ;  (c) Copyright 1999-2013 Microchip Technology, All rights reserved
+                      00007 ;==========================================================================
+                      00008 
+                      00208         LIST
+                      00017 
+                      00018 
+                      00019 ; =-=-=- FUSE bits -=-=-=
+                      00020 
+2007   3FF1           00021         __config        _XT_OSC & _WDT_OFF & _PWRTE_ON & _CP_OFF
+                      00022 
+                      00023 
+                      00024 ; =-=-=- Memory pagination -=-=-=
+                      00025 
+                      00026 #define bank0   bcf     STATUS,RP0                                                              ; Instru
+                            ction to select memory bank 0
+                      00027 #define bank1   bsf     STATUS,RP0                                                              ; Instru
+                            ction to select memory bank 1
+                      00028 
+                      00029 
+                      00030 ; =-=-=- General purpose registers -=-=-=
+                      00031 
+                      00032         cblock  H'0C'
+                      00033 
+  0000000C            00034         SNDS_CMD                                                                                        
+                                            ; Send-SET command
+  0000000D            00035         SNDC_CMD                                                                                        
+                                            ; Send-CLEAR command
+  0000000E            00036         COORD                                                                                           
+                                    ; Last coordinate received
+                      00037         
+                      00038         endc
+                      00039 
+MPASM  5.51                        SOURCE.ASM   10-14-2021  18:43:06         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00040 
+                      00041 ; =-=-=- Reset vector -=-=-=
+                      00042 
+0000                  00043         org             H'0000'
+0000   2834           00044         goto    init
+                      00045 
+                      00046 
+                      00047 ; =-=-=- Interruption vector -=-=-=
+                      00048 
+0004                  00049         org             H'0004'
+0004   0009           00050         retfie
+                      00051 
+                      00052 
+                      00053 ; #-#-#- Labels -#-#-#
+                      00054 
+                      00055 ; =-=-=- Reset I/O -=-=-=
+                      00056 
+0005                  00057 default_io:
+                      00058 
+0005   1405           00059         bsf             PORTA,RA0                                                                       
+                                    ; PORTA[RA0] = 1
+                      00060 
+0006   1683           00061         bank1                                                                                           
+                                    ; Switch to bank 1
+                      00062         
+0007   307F           00063         movlw   H'7F'                                                                                   
+                            ; B'01111111'
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0008   0086           00064         movwf   TRISB                                                                                   
+                            ; TRISB = B'01111111'
+                      00065         
+0009   1283           00066         bank0                                                                                           
+                                    ; Switch to bank 0
+                      00067         
+000A   1085           00068         bcf             PORTA,RA1                                                                       
+                                    ; PORTA[RA1] = 0
+000B   1105           00069         bcf             PORTA,RA2                                                                       
+                                    ; PORTA[RA2] = 0
+                      00070         
+000C   0008           00071         return
+                      00072         
+                      00073 ; =-=-=- Not a command I/O -=-=-=
+                      00074 
+000D                  00075 ncmd_io:
+                      00076 
+000D   0806           00077         movf    PORTB,W                                                                                 
+                            ; Work = PORTB
+000E   008E           00078         movwf   COORD                                                                                   
+                            ; COORD = PORTB
+                      00079 
+000F   1005           00080         bcf             PORTA,RA0                                                                       
+                                    ; PORTA[RA0] = 0
+                      00081 
+MPASM  5.51                        SOURCE.ASM   10-14-2021  18:43:06         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0010   1683           00082         bank1                                                                                           
+                                    ; Switch to bank 1
+                      00083         
+0011   3000           00084         movlw   H'00'                                                                                   
+                            ; B'00000000'
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0012   0086           00085         movwf   TRISB                                                                                   
+                            ; TRISB = B'00000000'
+                      00086         
+0013   1283           00087         bank0                                                                                           
+                                    ; Switch to bank 0
+                      00088         
+0014   080E           00089         movf    COORD,W                                                                                 
+                            ; Work = COORD
+0015   0086           00090         movwf   PORTB                                                                                   
+                            ; PORTB = COORD
+                      00091         
+0016   1485           00092         bsf             PORTA,RA1                                                                       
+                                    ; PORTA[RA1] = 1
+                      00093         
+0017   0008           00094         return
+                      00095         
+                      00096 
+                      00097 ; =-=-=- Send command I/O -=-=-=
+                      00098 
+0018                  00099 snd_cmd_io:
+                      00100 
+0018   1683           00101         bank1                                                                                           
+                                    ; Switch to bank 1
+                      00102         
+0019   3000           00103         movlw   H'00'                                                                                   
+                            ; B'00000000'
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+001A   0086           00104         movwf   TRISB                                                                                   
+                            ; TRISB = B'00000000'
+                      00105         
+001B   1283           00106         bank0                                                                                           
+                                    ; Switch to bank 0
+                      00107         
+001C   1005           00108         bcf             PORTA,RA0                                                                       
+                                    ; PORTA[RA0] = 0
+001D   1505           00109         bsf             PORTA,RA2                                                                       
+                                    ; PORTA[RA2] = 1
+                      00110         
+001E   0008           00111         return
+                      00112         
+                      00113 
+                      00114 ; =-=-=- Not a command -=-=-=
+                      00115 
+001F                  00116 ncmd:
+                      00117         
+001F   200D           00118         call    ncmd_io
+0020   2005           00119         call    default_io
+MPASM  5.51                        SOURCE.ASM   10-14-2021  18:43:06         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00120         
+0021   282A           00121         goto    main_loop
+                      00122         
+                      00123         
+                      00124 ; =-=-=- Send-SET command -=-=-=
+                      00125 
+0022                  00126 snds_cmd:
+                      00127 
+0022   1786           00128         bsf             PORTB,RB7                                                                       
+                                    ; PORTB[RB7] = 1
+                      00129         
+0023   2018           00130         call    snd_cmd_io
+0024   2005           00131         call    default_io
+                      00132         
+0025   1386           00133         bcf             PORTB,RB7                                                                       
+                                    ; PORTB[RB7] = 0
+                      00134         
+0026   282A           00135         goto    main_loop
+                      00136         
+                      00137         
+                      00138 ; =-=-=- Send-SET command -=-=-=
+                      00139 
+0027                  00140 sndc_cmd:
+                      00141         
+0027   2018           00142         call    snd_cmd_io
+0028   2005           00143         call    default_io
+                      00144         
+0029   282A           00145         goto    main_loop
+                      00146 
+                      00147 
+                      00148 ; =-=-=- MainLoop -=-=-=
+                      00149 
+002A                  00150 main_loop:
+                      00151 
+002A   080C           00152         movf    SNDS_CMD,W                                                                              
+                            ; Work = SNDS_CMD
+002B   0606           00153         xorwf   PORTB,W                                                                                 
+                            ; PORTB xor SNDS_CMD
+002C   1903           00154         btfsc   STATUS,Z                                                                                
+                                    ; If PORTB != SNDS_CMD, skip
+002D   2822           00155         goto    snds_cmd                                                                                
+                                    ; Execute this if PORTB is the Send-SET command
+                      00156         
+002E   080D           00157         movf    SNDC_CMD,W                                                                              
+                            ; Work = SNDC_CMD
+002F   0606           00158         xorwf   PORTB,W                                                                                 
+                            ; PORTB xor SNDC_CMD
+0030   1903           00159         btfsc   STATUS,Z                                                                                
+                                    ; If PORTB != SNDC_CMD, skip
+0031   2827           00160         goto    sndc_cmd                                                                                
+                                    ; Execute this if PORTB is the Send-CLEAR command
+                      00161         
+0032   281F           00162         goto    ncmd                                                                                    
+MPASM  5.51                        SOURCE.ASM   10-14-2021  18:43:06         PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                                    ; Execute this if PORTB is not a command
+                      00163         
+                      00164                 
+0033   282A           00165         goto    main_loop
+                      00166         
+                      00167 
+                      00168 ; =-=-=- Init -=-=-=
+                      00169 
+0034                  00170 init:
+                      00171 
+                      00172         ; -- General purpose registers initialization --
+                      00173 
+0034   307F           00174         movlw   H'7F'                                                                                   
+                            ; B'01111111'
+0035   008C           00175         movwf   SNDS_CMD                                                                                
+                                    ; Send-SET command = B'01111111'
+                      00176         
+0036   303F           00177         movlw   H'3F'                                                                                   
+                            ; B'00111111'
+0037   008D           00178         movwf   SNDC_CMD                                                                                
+                                    ; Send-CLEAR command = B'00111111'
+                      00179         
+                      00180         
+                      00181         ; -- I/O default --
+                      00182 
+0038   1683           00183         bank1                                                                                           
+                                    ; Switch to bank 1
+                      00184         
+0039   30F8           00185         movlw   H'F8'                                                                                   
+                            ; B'11111000'
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+003A   0085           00186         movwf   TRISA                                                                                   
+                            ; [~RA2]: output | [RA3~]: input
+                      00187         
+003B   1283           00188         bank0                                                                                           
+                                    ; Switch to bank 0
+                      00189         
+003C   2005           00190         call    default_io                                                                              
+003D   202A           00191         call    main_loop
+                      00192         
+                      00193         end
+MPASM  5.51                        SOURCE.ASM   10-14-2021  18:43:06         PAGE  6
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+C                                 00000000
+COORD                             0000000E
+DC                                00000001
+EEADR                             00000009
+EECON1                            00000088
+EECON2                            00000089
+EEDATA                            00000008
+EEIE                              00000006
+EEIF                              00000004
+F                                 00000001
+FSR                               00000004
+GIE                               00000007
+INDF                              00000000
+INTCON                            0000000B
+INTE                              00000004
+INTEDG                            00000006
+INTF                              00000001
+IRP                               00000007
+NOT_PD                            00000003
+NOT_RBPU                          00000007
+NOT_TO                            00000004
+OPTION_REG                        00000081
+PCL                               00000002
+PCLATH                            0000000A
+PORTA                             00000005
+PORTB                             00000006
+PS0                               00000000
+PS1                               00000001
+PS2                               00000002
+PSA                               00000003
+RA0                               00000000
+RA1                               00000001
+RA2                               00000002
+RA3                               00000003
+RA4                               00000004
+RB0                               00000000
+RB1                               00000001
+RB2                               00000002
+RB3                               00000003
+RB4                               00000004
+RB5                               00000005
+RB6                               00000006
+RB7                               00000007
+RBIE                              00000003
+RBIF                              00000000
+RD                                00000000
+RP0                               00000005
+RP1                               00000006
+SNDC_CMD                          0000000D
+SNDS_CMD                          0000000C
+STATUS                            00000003
+T0CS                              00000005
+T0IE                              00000005
+MPASM  5.51                        SOURCE.ASM   10-14-2021  18:43:06         PAGE  7
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+T0IF                              00000002
+T0SE                              00000004
+TMR0                              00000001
+TMR0IE                            00000005
+TMR0IF                            00000002
+TRISA                             00000085
+TRISA0                            00000000
+TRISA1                            00000001
+TRISA2                            00000002
+TRISA3                            00000003
+TRISA4                            00000004
+TRISB                             00000086
+TRISB0                            00000000
+TRISB1                            00000001
+TRISB2                            00000002
+TRISB3                            00000003
+TRISB4                            00000004
+TRISB5                            00000005
+TRISB6                            00000006
+TRISB7                            00000007
+W                                 00000000
+WR                                00000001
+WREN                              00000002
+WRERR                             00000003
+Z                                 00000002
+_CONFIG                           00002007
+_CP_OFF                           00003FFF
+_CP_ON                            0000000F
+_DEVID1                           00002006
+_FOSC_EXTRC                       00003FFF
+_FOSC_HS                          00003FFE
+_FOSC_LP                          00003FFC
+_FOSC_XT                          00003FFD
+_HS_OSC                           00003FFE
+_IDLOC0                           00002000
+_IDLOC1                           00002001
+_IDLOC2                           00002002
+_IDLOC3                           00002003
+_LP_OSC                           00003FFC
+_PWRTE_OFF                        00003FFF
+_PWRTE_ON                         00003FF7
+_RC_OSC                           00003FFF
+_WDTE_OFF                         00003FFB
+_WDTE_ON                          00003FFF
+_WDT_OFF                          00003FFB
+_WDT_ON                           00003FFF
+_XT_OSC                           00003FFD
+__16F84A                          00000001
+__DEBUG                           1
+bank0                             bcf     STATUS,RP0
+bank1                             bsf     STATUS,RP0
+default_io                        00000005
+init                              00000034
+MPASM  5.51                        SOURCE.ASM   10-14-2021  18:43:06         PAGE  8
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+main_loop                         0000002A
+ncmd                              0000001F
+ncmd_io                           0000000D
+snd_cmd_io                        00000018
+sndc_cmd                          00000027
+snds_cmd                          00000022
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : X---XXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXX--
+2000 : -------X-------- ---------------- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:    59
+Program Memory Words Free:   965
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     4 reported,     0 suppressed
+
+
